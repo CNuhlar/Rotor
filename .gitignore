@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual env
+.venv/
+
+# PyInstaller build output (the .exe ships via GitHub Releases, not the repo)
+build/
+dist/
+disttest/
+*.spec
+
+# Runtime / logs
+run.log
+tray_error.log
+
+# OS
+Thumbs.db
+desktop.ini
