@@ -36,8 +36,6 @@ def _meter(rms, width=12):
 
 
 def print_status(engine, knob):
-    if knob.mode == "volume":
-        engine.sync_system_volume()
     if engine.bypass:
         line = "  [BYPASS] "
     else:
@@ -88,6 +86,7 @@ def main():
         print(f"Error opening stream: {engine.error}")
         print("Hint: run 'python main.py --list' to see devices, then pass --in/--out.")
         return
+    engine.start_volume_sync()
 
     print("Rotor running.  Press Ctrl+C to quit.")
     print("  turn = selected effect | Shift+turn = switch effect | press = bypass")
@@ -103,6 +102,7 @@ def main():
         print("\nstopped.")
     finally:
         knob.stop()
+        engine.stop_volume_sync()
         engine.stop()
 
 

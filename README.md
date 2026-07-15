@@ -48,9 +48,9 @@ it are welcome, open an issue if you want to take it on.
 ## Controls
 | Action | Effect |
 |---|---|
-| Turn knob | Adjust the selected effect's amount (in **volume** mode, the Windows system volume) |
+| Turn knob | Adjust the selected effect's amount (in **volume** mode, the output device's Windows volume) |
 | **Shift** + turn | Switch effect (cycles the chain) |
-| Single press (mute) | Bypass all effects / re-enable (in **volume** mode, toggles Windows mute) |
+| Single press (mute) | Bypass all effects / re-enable (in **volume** mode, mutes the output device) |
 
 You can also switch the active effect and toggle bypass from the panel.
 
@@ -60,7 +60,7 @@ knob adjusts:
 
 | Code | Effect | What it does |
 |---|---|---|
-| **VOL** | volume | the default mode: the knob drives the **Windows system volume** (native volume OSD), press toggles Windows mute; the tray icon/panel mirror the level |
+| **VOL** | volume | the default mode: the knob drives the **real Windows volume of Rotor's output device** (so it actually attenuates and shows in the Windows mixer), press toggles that device's mute; the tray icon/panel mirror the level |
 | **FLT** | filter | open in the middle, left = low-pass (dark), right = high-pass (thin) |
 | **DRV** | drive | soft-clip saturation, 0 = clean |
 | **CRU** | crush | lo-fi bit-depth + sample-rate reduction, 0 = off |
@@ -143,7 +143,7 @@ python main.py --in-name "CABLE Output" --out-name "Speakers"   # by name
 | `engine.py` | audio engine, device enumeration/defaults, stream management |
 | `effects.py` | the effect DSP (volume, filter, drive, crush, delay, reverb) |
 | `knob.py` | captures the knob via a global keyboard hook |
-| `winvol.py` | reads the Windows output volume/mute (ctypes Core Audio) for volume mode |
+| `winvol.py` | reads/sets a Windows output device's volume/mute (ctypes Core Audio) for volume mode |
 | `config.py` | persists settings to `%APPDATA%\Rotor` |
 | `autostart.py` | run-at-logon Scheduled Task helper |
 | `knob_test.py` | diagnostic: prints the raw key events the knob emits |

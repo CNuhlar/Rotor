@@ -447,10 +447,6 @@ class TrayApp:
                 self.panel.toggle()
         except queue.Empty:
             pass
-        # Mirror Windows volume into the display when it's the active effect
-        # (icon/tooltip) or the panel is open (its volume row).
-        if self.knob.mode == "volume" or self.panel.is_visible():
-            self.engine.sync_system_volume()
         sig = self._sig()
         if sig != self._last_sig:
             self._last_sig = sig
@@ -484,6 +480,7 @@ class TrayApp:
         self.knob.start()
         self.engine.warmup()
         self._start_devices()
+        self.engine.start_volume_sync()
 
         self.root.after(60, self._poll)
         try:
@@ -495,6 +492,7 @@ class TrayApp:
             except Exception:
                 pass
             self.knob.stop()
+            self.engine.stop_volume_sync()
             self.engine.stop()
 
 

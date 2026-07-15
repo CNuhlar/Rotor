@@ -7,6 +7,8 @@ under the GIL). Devices can be swapped live via start(); the old stream is
 closed first.
 """
 
+import threading
+
 import numpy as np
 import sounddevice as sd
 
@@ -89,8 +91,15 @@ class AudioEngine:
         self.bypass = False
         self.input = None
         self.output = None
+        self.out_name = None                    # friendly name of the output device
         self.error = None
         self._stream = None
+        # Background applier: the Volume effect mirrors the OUTPUT device's real
+        # Windows volume. The knob (key-hook thread) only steps the target and
+        # sets this event; the COM read/write happens here, off the hook thread.
+        self._vol_event = threading.Event()
+        self._vol_stop = threading.Event()
+        self._vol_thread = None
 
     def effect(self, name):
         for e in self.effects:
@@ -98,20 +107,51 @@ class AudioEngine:
                 return e
         return None
 
-    def sync_system_volume(self):
-        """Mirror the Windows output level/mute into the Volume effect so the app
-        shows what the knob just did to Windows. No-op if there's no Volume effect
-        or Core Audio is unavailable (keeps the last shown value)."""
+    # --- system volume mirror -----------------------------------------
+    def request_volume_apply(self):
+        """Ask the applier thread to push the Volume effect's target to the OS."""
+        self._vol_event.set()
+
+    def start_volume_sync(self):
+        if self._vol_thread and self._vol_thread.is_alive():
+            return
+        self._vol_stop.clear()
+        self._vol_thread = threading.Thread(
+            target=self._volume_worker, name="rotor-volume", daemon=True)
+        self._vol_thread.start()
+
+    def stop_volume_sync(self):
+        self._vol_stop.set()
+        self._vol_event.set()                   # wake it so it can exit
+        if self._vol_thread and self._vol_thread.is_alive():
+            self._vol_thread.join(timeout=1.0)
+        self._vol_thread = None
+
+    def _volume_worker(self):
+        """Push the Volume target to the output device when the knob changes it,
+        and otherwise poll the device so external changes show in the app."""
         vol = self.effect("volume")
         if vol is None:
             return
         import winvol
-        level, muted = winvol.read()
-        if level is not None:
-            vol.amount = level
-            vol._cur = level
-        if muted is not None:
-            vol.muted = muted
+        while not self._vol_stop.is_set():
+            pushed = self._vol_event.wait(0.4)
+            self._vol_event.clear()
+            if self._vol_stop.is_set():
+                break
+            name = self.out_name
+            if not name:
+                continue
+            if pushed:                          # knob moved -> write to the device
+                winvol.set_device_mute(name, vol.muted)
+                winvol.set_device_volume(name, vol.amount)
+            else:                               # idle -> mirror the device's state
+                level, muted = winvol.read_device(name)
+                if level is not None:
+                    vol.amount = level
+                    vol._cur = level
+                if muted is not None:
+                    vol.muted = muted
 
     def warmup(self, blocks=10):
         """Prime the DSP off the audio thread: allocate every effect's buffers
@@ -157,6 +197,7 @@ class AudioEngine:
             self._stream.start()
             self.input = input
             self.output = output
+            self.out_name = device_name(output)
             self.error = None
             return True
         except Exception as e:

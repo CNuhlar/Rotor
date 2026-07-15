@@ -69,6 +69,20 @@ class KnobController:
         self.engine.bypass = not self.engine.bypass
         self.on_change(self)
 
+    # --- volume mode: drive the output device's real Windows volume ----
+    def _volume_step(self, sign):
+        e = self.current()
+        e.muted = False                         # any turn un-mutes, like Windows
+        e.amount = float(np.clip(e.amount + sign * STEP, 0.0, 1.0))
+        self.engine.request_volume_apply()
+        self.on_change(self)
+
+    def _toggle_volume_mute(self):
+        e = self.current()
+        e.muted = not e.muted
+        self.engine.request_volume_apply()
+        self.on_change(self)
+
     # --- global hook ---------------------------------------------------
     def _handle(self, e):
         """Return False to suppress (block Windows), True to let the key pass.
@@ -80,11 +94,16 @@ class KnobController:
             name = e.name
             if name not in _VOLUME_KEYS:
                 return True                     # not ours -> pass through
-            # In volume mode the knob IS the Windows volume: let the media key
-            # reach Windows (native OSD + real level/mute) instead of driving an
-            # effect. Shift still switches effect, so it stays suppressed then.
+            # In volume mode the knob IS the Windows volume of Rotor's OUTPUT
+            # device: step the target here (fast) and let the engine's applier
+            # thread push it to the OS. Shift still switches effect.
             if self.mode == "volume" and not keyboard.is_pressed("shift"):
-                return True                     # pass through to Windows
+                if e.event_type == keyboard.KEY_DOWN:
+                    if name == "volume mute":
+                        self._toggle_volume_mute()
+                    else:
+                        self._volume_step(+1 if name == "volume up" else -1)
+                return False                    # we drive the device ourselves
             if e.event_type == keyboard.KEY_DOWN:
                 if name == "volume up":
                     self._turn(+1)
